@@ -1,0 +1,154 @@
+Unreal Engine supports multithreading. Here are some key points about multithreading in Unreal Engine:
+
+- **Game Thread**: The main thread where most of the game logic runs.
+- **Render Thread**: Handles rendering tasks, usually runs on a separate thread.
+- **Task Graph System**: Allows for the creation and execution of tasks on multiple threads, aiding in parallel processing.
+- **Worker Threads**: Utilized by the task graph system to execute tasks concurrently.
+- **Asynchronous Loading**: Used for loading assets in the background without blocking the game thread.
+
+In Unreal Engine, multithreading is handled through various systems to ensure efficient execution of game logic, rendering, asset loading, and other tasks. Here’s how FRunnable and FRunnableThread relate to and interact with the Game Thread, Render Thread, Task Graph, and Async Loading:
+
+### Game Thread
+
+- **Primary Thread**: The Game Thread is the main thread where most of the game logic, including updates to game state, physics calculations, and handling input, takes place.
+- **Interaction**: Custom threads created with FRunnable and FRunnableThread can offload work from the Game Thread, such as complex calculations or I/O operations, to avoid frame rate drops and keep the game running smoothly.
+
+### Render Thread
+
+- **Dedicated Rendering**: The Render Thread is responsible for preparing rendering commands and interacting with the GPU. It runs parallel to the Game Thread to improve performance.
+- **Interaction**: The Game Thread communicates with the Render Thread to synchronize the rendering pipeline. Custom threads can interact with rendering by safely passing data to the Game Thread, which in turn communicates with the Render Thread.
+
+### Task Graph System
+
+- **Task Management**: Unreal Engine’s Task Graph System is designed for high-level task management, allowing for efficient parallel execution of tasks across multiple threads.
+- **Interaction**: Tasks are smaller units of work compared to full threads created with FRunnable. You can use FGraphEvent and FGraphEventRef to create and manage tasks. The system ensures that tasks are scheduled and executed in an optimized manner.
+
+### Asynchronous Loading
+
+- **Background Asset Loading**: Asynchronous Loading is used to load assets in the background without blocking the Game Thread. This is crucial for smooth gameplay, especially in open-world games where loading large amounts of data can impact performance.
+- **Interaction**: FStreamableManager and other asynchronous systems in Unreal Engine handle asset loading. Custom threads can be used to manage or monitor these operations, but usually, Unreal Engine's built-in systems are sufficient.
+
+### Practical Example of Integration
+
+- **Custom Thread for Data Processing**: Suppose you have a custom thread using FRunnable for AI calculations.
+- **Task Graph for Small Tasks**: You use the Task Graph System to break down complex AI tasks into smaller, manageable tasks that run across multiple threads.
+- **Game Thread Coordination**: The results of AI calculations are passed back to the Game Thread to update the game state.
+- **Render Thread Synchronization**: The Game Thread ensures that any visual updates required by the AI are communicated to the Render Thread.
+- **Asynchronous Loading**: If the AI determines that new assets are needed (e.g., a new enemy type), it triggers asynchronous loading of these assets in the background.
+
+### FRunnable Interface Functions
+
+- **Init()**
+  - **Purpose**: This function is called once when the thread is created and before the Run method is called. It is used to perform any necessary initialization for the thread.
+  - **Return Value**: It returns a bool. Returning true indicates that the initialization was successful and the thread can proceed to run. Returning false indicates a failure, and the thread will not start.
+
+- **Run()**
+  - **Purpose**: This is the main function that contains the code to be executed by the thread. It is called in a loop and should regularly check for a stop condition to exit gracefully.
+  - **Return Value**: It returns a uint32, which is typically the exit code of the thread. A common practice is to return 0 on successful execution.
+
+- **Stop()**
+  - **Purpose**: This function is called to request the thread to stop. It should set a flag or use a thread-safe mechanism to signal the Run method to exit its loop.
+  - **Return Value**: This function does not return a value.
+
+- **Exit()**
+  - **Purpose**: This function is called after the Run method has exited. It is used to perform any necessary cleanup operations.
+  - **Return Value**: This function does not return a value.
+
+RETURN_QUICK_DECLARE_CYCLE_STAT is a macro used in Unreal Engine to help with performance profiling. It is part of the stat system, which allows you to track the performance and timing of various parts of your code. By using this macro, you can quickly declare and return a stat ID for a specific scope of your code, which can then be used to measure and report the performance of that scope.
+
+RETURN_QUICK_DECLARE_CYCLE_STAT(FMyTask, STATGROUP_TaskGraphTasks);
+RETURN_QUICK_DECLARE_CYCLE_STAT(StatName, StatGroup) \
+    return FStatId(StatName, StatGroup)
+    
+StatName: The name of the stat you are declaring. This is usually a descriptive name that indicates what is being measured.
+StatGroup: The group to which the stat belongs. This helps organize stats into categories for better readability and management.
+
+Stat ID
+A Stat ID is an identifier used within the stat system to track a specific piece of performance data. It is associated with a particular code block, function, or task that you want to profile. The Stat ID is used by Unreal Engine's profiling tools to collect and report timing and other performance-related data.
+
+Stat System
+The stat system in Unreal Engine is a framework that provides a way to gather, organize, and visualize performance data. It includes several components and macros to help developers instrument their code and analyze the collected data.
+
+Key Components
+Stat Group: A category or collection of related stats. For example, there could be a stat group for rendering, physics, AI, etc.
+Cycle Stats: Measurements of the time taken to execute a piece of code. These are often the most critical stats for performance analysis.
+
+Declaring a Stat: You can declare a stat using macros provided by Unreal Engine.
+DECLARE_CYCLE_STAT(TEXT("My Task"), STAT_MyTask, STATGROUP_TaskGraph);
+TEXT("My Task"): A human-readable name for the stat.
+STAT_MyTask: A unique identifier for the stat.
+STATGROUP_TaskGraph: The stat group this stat belongs to.
+
+Using Cycle Counters: Cycle counters are used to measure the time taken by a specific piece of code. This is often done using the SCOPE_CYCLE_COUNTER macro.
+void MyFunction()
+{
+    SCOPE_CYCLE_COUNTER(STAT_MyTask);
+    // Code to profile
+}
+
+RETURN_QUICK_DECLARE_CYCLE_STAT: This macro is used to quickly declare and return a stat ID for a scope.
+FORCEINLINE TStatId GetStatId() const
+{
+    RETURN_QUICK_DECLARE_CYCLE_STAT(FMyTask, STATGROUP_TaskGraph);
+}
+
+FPlatformProcess is a class in Unreal Engine that provides a set of static functions for handling various platform-specific process-related tasks. These functions can be used to perform operations such as launching and managing external processes, sleeping the current thread, and retrieving system information.
+
+Sleep
+
+Purpose: Suspends the execution of the current thread for a specified amount of time.
+Usage: Often used in loops within threads to reduce CPU usage.
+FPlatformProcess::Sleep(float Seconds);
+
+GetApplicationName
+
+Purpose: Gets the name of the currently running application.
+Return Value: Returns a string containing the application name.
+FString FPlatformProcess::GetApplicationName();
+
+FGraphEvent
+FGraphEvent is an interface for an event in the Task Graph system. It represents a unit of work that can be executed asynchronously and can be used to manage dependencies between tasks.
+
+Purpose: Represents a single task or event in the Task Graph system.
+Usage: Used to manage and synchronize asynchronous tasks.
+
+FGraphEventRef MyTask = FFunctionGraphTask::CreateAndDispatchWhenReady([]()
+{
+    // Task logic here
+}, TStatId(), nullptr, ENamedThreads::AnyThread);
+
+FStreamableManager
+FStreamableManager is a class that handles streaming assets asynchronously. It allows you to load and unload assets without blocking the main thread.
+
+Purpose: Manages asynchronous loading and unloading of assets.
+Usage: Used for efficient asset management, especially in large open-world games.
+
+FStreamableManager& StreamableManager = UAssetManager::GetStreamableManager();
+TSoftObjectPtr<UStaticMesh> MeshAsset(TEXT("/Game/Path/To/YourMesh.YourMesh"));
+
+StreamableManager.RequestAsyncLoad(MeshAsset.ToSoftObjectPath(), [MeshAsset]()
+{
+    if (MeshAsset.IsValid())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Asset Loaded: %s"), *MeshAsset->GetName());
+    }
+});
+
+
+The Render Thread in Unreal Engine is a dedicated thread responsible for rendering operations, ensuring that the game’s visuals are processed efficiently and separately from the main game logic. This separation allows for smoother gameplay and better performance, as rendering operations can be quite intensive and would otherwise compete for resources with game logic if run on the same thread.
+
+Game Thread Generates Commands: During each frame, the Game Thread generates a list of rendering commands based on the current game state. These commands are enqueued and sent to the Render Thread.
+
+Render Thread Processes Commands: The Render Thread dequeues the commands and processes them, updating the visual representation of the game. This includes issuing draw calls to the GPU, updating shaders, and managing textures and materials.
+
+Synchronization Points: At certain points, synchronization is required to ensure that the Render Thread has the latest data from the Game Thread. Unreal Engine uses mechanisms like fences or events to manage this synchronization efficiently.
+
+ENQUEUE_RENDER_COMMAND(MyRenderCommand)(
+    [](FRHICommandListImmediate& RHICmdList)
+    {
+        // Rendering code here, executed on the Render Thread
+    });
+
+Stat Commands: Use console commands like stat RHI and stat GPU to gather performance metrics related to rendering.
+
+Unreal Insights: A powerful tool for profiling various aspects of the engine, including the Render Thread. It provides detailed visualization of frame timings and thread activities.
