@@ -6,7 +6,7 @@ RunnableGoon::RunnableGoon(EThreadPriority InPriority, TQueue<int32, EQueueMode:
 	: ThreadPriority(InPriority), PrimeQueue(InPrimeQueue), PrimeCounter(0) {
 
 	//FPlatformProcess::CreateSynchEvent() : Creates an event object.
-	PrimeFoundEvent = FPlatformProcess::CreateSynchEvent(false); // Initialize the event
+	PrimeFoundEvent = FPlatformProcess::GetSynchEventFromPool(false); // Initialize the event
 	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Constructor called!"));
 }
 
