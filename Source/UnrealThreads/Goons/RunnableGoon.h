@@ -4,31 +4,29 @@
 #include "HAL/Runnable.h"
 #include "HAL/CriticalSection.h"
 #include "HAL/PlatformAtomics.h"
-#include "Containers/Queue.h" // Include TQueue
+#include "Containers/Queue.h"
+#include "ITask.h"
 
 class UNREALTHREADS_API RunnableGoon : public FRunnable
 {
 public:
-	RunnableGoon(EThreadPriority InPriority, TQueue<int32, EQueueMode::Mpsc>& InQueue, FCriticalSection& InQueueCriticalSection, int32 CoreAffinity);
+	RunnableGoon(EThreadPriority InPriority, TQueue<TSharedPtr<ITask>, EQueueMode::Mpsc>& InTaskQueue, FCriticalSection& InTaskQueueCriticalSection, int32 CoreAffinity);
 	virtual ~RunnableGoon();
 
 	virtual bool Init() override;
 	virtual uint32 Run() override;
 	virtual void Stop() override;
+	void AddTask(TSharedPtr<ITask> Task);
 
 private:
 	FThreadSafeCounter StopTaskCounter;
 	EThreadPriority ThreadPriority;
 	FCriticalSection CriticalSection;
-	TArray<int32> PrimeNumbers;
-	TAtomic<int32> PrimeCounter;
 
-	TQueue<int32, EQueueMode::Mpsc>& Queue; // Reference to the thread-safe queue
-	FCriticalSection& QueueCriticalSection; // Reference to the critical section for queue
+	TQueue<TSharedPtr<ITask>, EQueueMode::Mpsc>& TaskQueue;
+	FCriticalSection& TaskQueueCriticalSection;
 
 	int32 CoreAffinity; // Core affinity for this thread
 
-	bool IsPrime(int32 Number);
-	void FindPrimes();
-	void LogPrimeNumbers();
+	void ExecuteTasks();
 };

@@ -1,9 +1,9 @@
 #include "RunnableGoon.h"
 #include "Misc/OutputDeviceDebug.h"
-#include "Windows/WindowsHWrapper.h" // Include Windows API header
+#include "Windows/WindowsHWrapper.h"
 
-RunnableGoon::RunnableGoon(EThreadPriority InPriority, TQueue<int32, EQueueMode::Mpsc>& InQueue, FCriticalSection& InQueueCriticalSection, int32 InCoreAffinity)
-	: ThreadPriority(InPriority), PrimeCounter(0), Queue(InQueue), QueueCriticalSection(InQueueCriticalSection), CoreAffinity(InCoreAffinity) {}
+RunnableGoon::RunnableGoon(EThreadPriority InPriority, TQueue<TSharedPtr<ITask>, EQueueMode::Mpsc>& InTaskQueue, FCriticalSection& InTaskQueueCriticalSection, int32 InCoreAffinity)
+	: ThreadPriority(InPriority), TaskQueue(InTaskQueue), TaskQueueCriticalSection(InTaskQueueCriticalSection), CoreAffinity(InCoreAffinity) {}
 
 RunnableGoon::~RunnableGoon()
 {
@@ -17,7 +17,6 @@ bool RunnableGoon::Init()
 
 uint32 RunnableGoon::Run()
 {
-	// Set thread affinity
 	HANDLE ThreadHandle = GetCurrentThread();
 	SetThreadAffinityMask(ThreadHandle, static_cast<DWORD_PTR>(1ULL << CoreAffinity));
 
@@ -27,17 +26,14 @@ uint32 RunnableGoon::Run()
 	}
 	while (StopTaskCounter.GetValue() == 0)
 	{
-		FindPrimes();
+		ExecuteTasks();
 		FPlatformProcess::Sleep(0.05f);
-		UE_LOG(LogTemp, Warning, TEXT("Running in a separate thread!"));
 	}
 
 	{
 		FScopeLock Lock(&CriticalSection);
 		UE_LOG(LogTemp, Warning, TEXT("Thread exiting Run method!"));
 	}
-
-	LogPrimeNumbers();
 
 	return 0;
 }
@@ -51,44 +47,23 @@ void RunnableGoon::Stop()
 	}
 }
 
-bool RunnableGoon::IsPrime(int32 Number)
+void RunnableGoon::AddTask(TSharedPtr<ITask> Task)
 {
-	if (Number <= 1) return false;
-	if (Number <= 3) return true;
-
-	if (Number % 2 == 0 || Number % 3 == 0) return false;
-
-	for (int32 i = 5; i * i <= Number; i += 6)
-	{
-		if (Number % i == 0 || Number % (i + 2) == 0)
-			return false;
-	}
-	return true;
+	FScopeLock Lock(&TaskQueueCriticalSection);
+	TaskQueue.Enqueue(Task);
+	UE_LOG(LogTemp, Warning, TEXT("[%s] Task added to RunnableGoon queue"), *FDateTime::Now().ToString());
 }
 
-void RunnableGoon::FindPrimes()
+void RunnableGoon::ExecuteTasks()
 {
-	int32 PrimesFound = 0;
-	for (int32 i = 2; i < 10000; ++i)
+	TSharedPtr<ITask> Task;
+	while (TaskQueue.Dequeue(Task))
 	{
-		if (StopTaskCounter.GetValue() != 0) // Check stop condition
+		if (Task.IsValid())
 		{
-			break;
-		}
-		if (IsPrime(i))
-		{
-			PrimeCounter++;
-			PrimesFound++;
-
-			{
-				FScopeLock QueueLock(&QueueCriticalSection);
-				Queue.Enqueue(i);
-			}
+			UE_LOG(LogTemp, Warning, TEXT("[%s] Task dequeued by thread: ThreadPoolThread%d"), *FDateTime::Now().ToString(), CoreAffinity);
+			Task->Execute();
+			UE_LOG(LogTemp, Warning, TEXT("[%s] Task executed by thread: ThreadPoolThread%d"), *FDateTime::Now().ToString(), CoreAffinity);
 		}
 	}
-}
-
-void RunnableGoon::LogPrimeNumbers()
-{
-	UE_LOG(LogTemp, Warning, TEXT("Total number of primes found: %d"), PrimeCounter.Load());
 }
