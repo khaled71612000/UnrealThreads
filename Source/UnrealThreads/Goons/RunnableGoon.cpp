@@ -1,34 +1,39 @@
 #include "RunnableGoon.h"
 #include "Misc/OutputDeviceDebug.h"
+#include "HAL/PlatformTLS.h"
 
-RunnableGoon::RunnableGoon(EThreadPriority InPriority) : ThreadPriority(InPriority), PrimeCounter(0) {}
+RunnableGoon::RunnableGoon(EThreadPriority InPriority, TQueue<int32, EQueueMode::Mpsc>* InPrimeQueue)
+	: ThreadPriority(InPriority), PrimeQueue(InPrimeQueue), PrimeCounter(0) {
+	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Constructor called!"));
+}
 
 RunnableGoon::~RunnableGoon() {
 	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Destructor called!"));
 }
 
 bool RunnableGoon::Init() {
+	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Init called!"));
 	return true;
 }
 
 uint32 RunnableGoon::Run() {
 	{
 		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Thread started with priority: %d"), static_cast<int32>(ThreadPriority));
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		UE_LOG(LogTemp, Warning, TEXT("Thread started with priority: %d, Thread ID: %u"), static_cast<int32>(ThreadPriority), ThreadId);
 	}
 
 	while (StopTaskCounter.GetValue() == 0) {
 		FindPrimes();
-		FPlatformProcess::Sleep(0.05f);
-		UE_LOG(LogTemp, Warning, TEXT("Running in a separate thread!"));
+		FPlatformProcess::Sleep(0.1f); // Increased sleep interval to reduce logging frequency
 	}
 
 	{
 		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Thread exiting Run method!"));
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		UE_LOG(LogTemp, Warning, TEXT("Thread exiting Run method! Thread ID: %u"), ThreadId);
 	}
 
-	LogPrimeNumbers();
 	return 0;
 }
 
@@ -36,7 +41,8 @@ void RunnableGoon::Stop() {
 	StopTaskCounter.Increment();
 	{
 		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Stop method called!"));
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		UE_LOG(LogTemp, Warning, TEXT("Stop method called! Thread ID: %u"), ThreadId);
 	}
 }
 
@@ -61,20 +67,13 @@ void RunnableGoon::FindPrimes() {
 		if (IsPrime(i)) {
 			PrimeCounter++;
 			PrimesFound++;
-			PrimeQueue.Enqueue(i);
+			PrimeQueue->Enqueue(i);
 		}
 	}
 
 	{
 		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Exiting FindPrimes method with %d primes found!"), PrimesFound);
+		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
+		UE_LOG(LogTemp, Warning, TEXT("Exiting FindPrimes method with %d primes found! Thread ID: %u"), PrimesFound, ThreadId);
 	}
-}
-
-void RunnableGoon::LogPrimeNumbers() {
-	int32 Prime;
-	while (PrimeQueue.Dequeue(Prime)) {
-		UE_LOG(LogTemp, Warning, TEXT("Prime number: %d"), Prime);
-	}
-	UE_LOG(LogTemp, Warning, TEXT("Total number of primes found: %d"), PrimeCounter.Load());
 }

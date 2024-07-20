@@ -3,13 +3,14 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "RunnableGoon.h"
+#include "Containers/Queue.h"
 #include "GoonActor.generated.h"
 
 UCLASS()
 class UNREALTHREADS_API AGoonActor : public AActor
 {
 	GENERATED_BODY()
-	
+
 public:
 	// Sets default values for this actor's properties
 	AGoonActor();
@@ -22,12 +23,14 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-	/*FRunnableThread is a class in Unreal Engine that manages the lifecycle of a thread running a FRunnable object.It provides functionality to create,
-		run, and terminate threads.The FRunnableThread class handles the lower - level details of thread management, allowing you to focus on the work you want to perform in the thread.*/
 	TArray<FRunnableThread*> Threads;
-
 	TArray<RunnableGoon*> RunnableGoons;
+	TQueue<int32, EQueueMode::Mpsc> PrimeQueue; // Shared queue for primes
+
+private:
+	float TimeSinceLastDeque = 0.0f; // Timer to control dequeuing frequency
+	const float DequeueInterval = 1.0f; // Time interval between dequeues in seconds
+	const int32 MaxDequeuesPerTick = 5; // Max number of items to dequeue per tick
 };
