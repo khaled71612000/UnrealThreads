@@ -23,8 +23,10 @@ void AGoonActor::Tick(float DeltaTime) {
 		int32 Prime;
 		uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
 		for (int32 i = 0; i < MaxDequeuesPerTick; ++i) {
-			if (PrimeQueue.Dequeue(Prime)) {
-				UE_LOG(LogTemp, Warning, TEXT("Prime number: %d, Thread ID: %u"), Prime, ThreadId);
+			if (RunnableGoons[0]->PrimeFoundEvent->Wait(0.1f)) { // Wait for event with a timeout
+				if (PrimeQueue.Dequeue(Prime)) {
+					UE_LOG(LogTemp, Warning, TEXT("Prime number: %d, Thread ID: %u"), Prime, ThreadId);
+				}
 			}
 			else {
 				break; // No more items to dequeue

@@ -4,10 +4,18 @@
 
 RunnableGoon::RunnableGoon(EThreadPriority InPriority, TQueue<int32, EQueueMode::Mpsc>* InPrimeQueue)
 	: ThreadPriority(InPriority), PrimeQueue(InPrimeQueue), PrimeCounter(0) {
+
+	//FPlatformProcess::CreateSynchEvent() : Creates an event object.
+	PrimeFoundEvent = FPlatformProcess::CreateSynchEvent(false); // Initialize the event
 	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Constructor called!"));
 }
 
+
 RunnableGoon::~RunnableGoon() {
+	if (PrimeFoundEvent) {
+		FPlatformProcess::ReturnSynchEventToPool(PrimeFoundEvent); // Destroy the event
+		PrimeFoundEvent = nullptr;
+	}
 	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Destructor called!"));
 }
 
@@ -68,6 +76,7 @@ void RunnableGoon::FindPrimes() {
 			PrimeCounter++;
 			PrimesFound++;
 			PrimeQueue->Enqueue(i);
+			PrimeFoundEvent->Trigger(); // Trigger the event
 		}
 	}
 
