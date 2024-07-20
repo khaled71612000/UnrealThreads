@@ -9,25 +9,70 @@ UCLASS()
 class UNREALTHREADS_API AGoonActor : public AActor
 {
 	GENERATED_BODY()
-	
+
 public:
-	// Sets default values for this actor's properties
 	AGoonActor();
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 public:
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-
-	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	/*FRunnableThread is a class in Unreal Engine that manages the lifecycle of a thread running a FRunnable object.It provides functionality to create,
-		run, and terminate threads.The FRunnableThread class handles the lower - level details of thread management, allowing you to focus on the work you want to perform in the thread.*/
+private:
 	TArray<FRunnableThread*> Threads;
-
 	TArray<RunnableGoon*> RunnableGoons;
+	//Use Shared Pointers: Use TSharedPtr for managing the promise to ensure it stays valid while it is needed.
+	TSharedPtr<TPromise<int32>> PrimePromise;
+	TFuture<int32> PrimeFuture;
 };
+
+
+//LogTemp: Warning: Thread started with priority : 0
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//PIE : Server logged in
+//PIE : Play in editor total start time 0.247 seconds.
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Exiting FindPrimes method with 1229 primes found!
+//LogSlate : Updating window title bar state : overlay mode, drag disabled, window buttons hidden, title bar hidden
+//LogWorld : BeginTearingDown for / Game / UEDPIE_0_Untitled
+//LogTemp : Warning: Stop method called!
+//LogTemp : Warning : Running in a separate thread!
+//LogTemp : Warning : Thread exiting Run method!
+//LogTemp : Warning : Total number of primes found : 22122
+//LogTemp : Warning : Stop method called!
+//LogTemp : Warning : RunnableGoon Destructor called!
+//LogTemp : Warning : Total number of primes found : 22122
