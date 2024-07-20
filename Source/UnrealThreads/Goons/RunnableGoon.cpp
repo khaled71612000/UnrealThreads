@@ -1,17 +1,13 @@
 #include "RunnableGoon.h"
 #include "Misc/OutputDeviceDebug.h"
 
-RunnableGoon::RunnableGoon(EThreadPriority InPriority) : ThreadPriority(InPriority), PrimeCounter(0) {}  // Initialize PrimeCounter to 0
-
+RunnableGoon::RunnableGoon(EThreadPriority InPriority, FWindowsSemaphore* InSemaphore)
+	: ThreadPriority(InPriority), PrimeCounter(0), Semaphore(InSemaphore) {}
 
 RunnableGoon::~RunnableGoon()
 {
 	UE_LOG(LogTemp, Warning, TEXT("RunnableGoon Destructor called!"));
 }
-
-//Initialization(FThreadSafeCounter StopTaskCounter;) : The counter is initialized, typically starting at 0.
-//Checking the Stopping Condition(while (StopTaskCounter.GetValue() == 0)) : The thread's main loop runs while the counter value is 0.
-//Signaling the Thread to Stop(StopTaskCounter.Increment()) : When you want to stop the thread, you increment the counter.This changes the value from 0 to 1, causing the loop condition to fail and the thread to exit.
 
 bool RunnableGoon::Init()
 {
@@ -20,24 +16,15 @@ bool RunnableGoon::Init()
 
 uint32 RunnableGoon::Run()
 {
-	{
-		// Lock the critical section for logging
-		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Thread started with priority: %d"), static_cast<int32>(ThreadPriority));
-	}
 	while (StopTaskCounter.GetValue() == 0)
 	{
+		Semaphore->Acquire();  // Acquire the semaphore
 		FindPrimes();
-		FPlatformProcess::Sleep(0.05f); // Reduced sleep interval for frequent stop checks
-		UE_LOG(LogTemp, Warning, TEXT("Running in a separate thread!"));
+		Semaphore->Release();  // Release the semaphore
+
+		FPlatformProcess::Sleep(0.05f);
 	}
 
-	{
-		// Lock the critical section for logging
-		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Thread exiting Run method!"));
-	}	
-	
 	LogPrimeNumbers();
 
 	return 0;
@@ -46,11 +33,6 @@ uint32 RunnableGoon::Run()
 void RunnableGoon::Stop()
 {
 	StopTaskCounter.Increment();
-	{
-		// Lock the critical section for logging
-		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Stop method called!"));
-	}
 }
 
 bool RunnableGoon::IsPrime(int32 Number)
@@ -82,52 +64,16 @@ void RunnableGoon::FindPrimes()
 			PrimeCounter++;
 			PrimesFound++;
 
-			// Protect the shared data structure with a critical section
-			{
-				FScopeLock Lock(&CriticalSection);
-				PrimeNumbers.Add(i);
-			}
+			FScopeLock Lock(&CriticalSection);
+			PrimeNumbers.Add(i);
 		}
 	}
 
-	{
-		FScopeLock Lock(&CriticalSection);
-		UE_LOG(LogTemp, Warning, TEXT("Exiting FindPrimes method with %d primes found!"), PrimesFound);
-	}
+	FScopeLock Lock(&CriticalSection);
+	UE_LOG(LogTemp, Warning, TEXT("Thread %d"), FPlatformTLS::GetCurrentThreadId());
 }
 
 void RunnableGoon::LogPrimeNumbers()
 {
-
-	//// Decrement the counter atomically
-	//FPlatformAtomics::InterlockedDecrement(&AtomicCounter);
-	//// Exchange (set) a value atomically and return the old value
-	//int32 OldValue = FPlatformAtomics::InterlockedExchange(&AtomicCounter, 10);
-	// Protect the shared data structure with a read lock
-	{
-		//FReadScopeLock ReadLock(ReadWriteLock);
-		//for (int32 Prime : PrimeNumbers)
-		//{
-		//	{
-		//		// Lock the critical section for logging
-		//		FScopeLock Lock(&CriticalSection);
-		//		UE_LOG(LogTemp, Warning, TEXT("Prime number: %d"), Prime);
-		//	}
-		//}
-	}
-
-	// Protect the shared data structure with a critical section
-	//{
-	//	FScopeLock Lock(&CriticalSection);
-	//	for (int32 Prime : PrimeNumbers)
-	//	{
-	//		UE_LOG(LogTemp, Warning, TEXT("Prime number: %d"), Prime);
-	//	}
-	//}
-
-	// Increment the counter atomically
-	//FPlatformAtomics::InterlockedIncrement(&AtomicCounter);
-	//UE_LOG(LogTemp, Warning, TEXT("Total number of primes found: %d"), AtomicCounter);
 	UE_LOG(LogTemp, Warning, TEXT("Total number of primes found: %d"), PrimeCounter.Load());
-
 }

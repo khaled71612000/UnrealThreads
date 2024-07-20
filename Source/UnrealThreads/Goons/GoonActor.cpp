@@ -1,4 +1,5 @@
 #include "GoonActor.h"
+#include "../../../../../../../Source/Runtime/Core/Public/Windows/WindowsSemaphore.h"
 
 // Sets default values
 AGoonActor::AGoonActor()
@@ -12,14 +13,17 @@ void AGoonActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Create runnables with different priorities
-	//RunnableGoon* HighPriorityRunnable = new RunnableGoon(TPri_Highest);
-	//RunnableGoon* NormalPriorityRunnable = new RunnableGoon(TPri_Normal);
-	//RunnableGoon* LowPriorityRunnable = new RunnableGoon(TPri_Lowest);
+	// Create a semaphore with an initial count of 0 and maximum count of 1
+	Semaphore = new FWindowsSemaphore(1, 2);
 
-	RunnableGoons.Add(new RunnableGoon(TPri_Highest));
-	RunnableGoons.Add(new RunnableGoon(TPri_Normal));
-	RunnableGoons.Add(new RunnableGoon(TPri_Lowest));
+	/*Imagine you have multiple threads that need to access a shared resource, such as a file, database,
+		or in this case, a list of prime numbers.To prevent these threads from interfering with each other and causing data corruption,
+		you use a semaphore to control access.*/
+
+	// Create runnables with different priorities and pass the semaphore
+	RunnableGoons.Add(new RunnableGoon(TPri_Highest, Semaphore));
+	RunnableGoons.Add(new RunnableGoon(TPri_Normal, Semaphore));
+	RunnableGoons.Add(new RunnableGoon(TPri_Lowest, Semaphore));
 
 	// Start threads with different priorities
 	Threads.Add(FRunnableThread::Create(RunnableGoons[0], TEXT("HighPriorityThread"), 0, TPri_Highest));
@@ -34,9 +38,8 @@ void AGoonActor::Tick(float DeltaTime)
 
 void AGoonActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	/*If the editor freezes when EndPlay is called,
-	it's likely because the thread is not terminating properly. This can happen if the thread is still running when you try to kill it.
-	To ensure that the thread stops correctly, you should give it some time to exit gracefully before forcefully killing it.*/
+	UE_LOG(LogTemp, Warning, TEXT("EndPlay called with reason: %d"), static_cast<int32>(EndPlayReason));
+
 	for (RunnableGoon* Runnable : RunnableGoons)
 	{
 		if (Runnable)
@@ -44,10 +47,6 @@ void AGoonActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			Runnable->Stop();
 		}
 	}
-
-	/*In Unreal Engine, objects that are not managed by the Garbage Collector(GC) need to be explicitly managed to avoid memory leaks.
-	Actors and UObjects typically need to be managed by the GC.However,
-	FRunnable and FRunnableThread are not UObjects, so they are not managed by the GC.This means you must manually handle their memory management.*/
 
 	for (FRunnableThread* Thread : Threads)
 	{
@@ -68,5 +67,12 @@ void AGoonActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 	}
 
-	Super::EndPlay(EndPlayReason);
+	// Delete the semaphore
+	if (Semaphore)
+	{
+		delete Semaphore;
+		Semaphore = nullptr;
 	}
+
+	Super::EndPlay(EndPlayReason);
+}
