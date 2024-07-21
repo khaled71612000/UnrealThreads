@@ -51,4 +51,20 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Physics")
 	UPhysicalMaterial* CubePhysicalMaterial;
 
+	int32 CompletedTasks;
+
+	DECLARE_EVENT(AMyPhysicsActor, FOnTasksCompleted)
+	FOnTasksCompleted OnPositionCalculationCompleted;
+	FOnTasksCompleted OnAnotherBackgroundTaskCompleted;
+
+	//// Events to signal completion of background tasks
+	//FEvent* PositionCalculationCompletedEvent;
+	//FEvent* AnotherBackgroundTaskCompletedEvent;
+
+	// Function to handle completion of background tasks
+	void OnBackgroundTasksCompleted();
+
+	// Internal helper to check if all tasks are completed
+	void CheckAllTasksCompleted();
+
 };
