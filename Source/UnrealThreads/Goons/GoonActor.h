@@ -5,6 +5,8 @@
 #include "RunnableGoon.h"
 #include "ThreadPoolManager.h"
 #include "TaskGraphManager.h"
+#include "Particle.h"
+#include "../ParticleActor.h"
 #include "GoonActor.generated.h"
 
 UCLASS()
@@ -26,9 +28,14 @@ private:
 	ThreadPoolManager* PoolManager;
 	TaskGraphManager* TaskGraph;
 
-	TQueue<int32, EQueueMode::Mpsc> PrimeQueue; // Thread-safe queue for prime numbers
-	FCriticalSection QueueCriticalSection; // Critical section for the prime queue
+	TArray<TSharedPtr<FParticle>> Particles;
+	TQueue<FParticleUpdate, EQueueMode::Mpsc> PositionUpdateQueue; // Queue for position updates
 
-	int32 TickCounter; // Counter to track the number of ticks
-	const int32 TaskAddInterval = 180; // Interval for adding new tasks (e.g., every 60 ticks)
+	const int32 ParticleCount = 30000; // Number of particles to simulate
+	const float TaskInterval = 2.5f; // Interval in seconds to add new tasks
+	float ElapsedTime = 0.0f; // Timer to track elapsed time
+
+	void InitializeParticles();
+	void UpdateParticlePositions();
+	void AddShakeTasks();
 };

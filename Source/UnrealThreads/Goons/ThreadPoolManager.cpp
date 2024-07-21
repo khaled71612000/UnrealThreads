@@ -23,7 +23,6 @@ void ThreadPoolManager::CreateThreads(int32 NumThreads)
 			*FString::Printf(TEXT("ThreadPoolThread%d"), Threads.Num()),
 			0,
 			TPri_Normal));
-		UE_LOG(LogTemp, Warning, TEXT("[%s] ThreadPoolThread%d created with Core Affinity %d"), *FDateTime::Now().ToString(), Threads.Num() - 1, i % PoolSize);
 	}
 }
 
