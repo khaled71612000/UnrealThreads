@@ -22,7 +22,6 @@ uint32 RunnableGoon::Run()
 	while (StopTaskCounter.GetValue() == 0)
 	{
 		ExecuteTasks();
-		FPlatformProcess::Sleep(0.05f);
 	}
 
 
@@ -36,7 +35,6 @@ void RunnableGoon::Stop()
 
 void RunnableGoon::AddTask(TSharedPtr<ITask> Task)
 {
-	FScopeLock Lock(&TaskQueueCriticalSection);
 	TaskQueue.Enqueue(Task);
 }
 

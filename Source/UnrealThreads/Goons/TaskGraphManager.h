@@ -8,40 +8,59 @@ class TaskGraphManager
 {
 public:
 	TaskGraphManager(ThreadPoolManager* InPoolManager)
-		: PoolManager(InPoolManager) {}
+		: PoolManager(InPoolManager), bIsExecuting(false) {}
 
 	void AddTask(TSharedPtr<FTaskNode> Node)
 	{
-		TaskNodes.Add(Node);
+		FScopeLock Lock(&TaskCriticalSection); // Lock the critical section
+		NewTaskNodes.Add(Node);
 		Node->OnReadyToExecute.AddLambda([this, Node]()
 			{
 				EnqueueTask(Node);
 			});
 	}
 
-	void EnqueueTask(TSharedPtr<FTaskNode> Node)
-	{
-		//In AddTask, an event is bound to the OnReadyToExecute event of the node, which will enqueue the task when the node is ready.
-		PoolManager->AddTask(Node->GetTask());
-	}
-
 	void Execute()
 	{
-		for (auto& Node : TaskNodes)
+		{
+			FScopeLock Lock(&TaskCriticalSection); // Lock the critical section
+			if (bIsExecuting) return; // If already executing, exit
+			bIsExecuting = true;
+
+			// Move new tasks to executing tasks
+			ExecutingTaskNodes.Append(NewTaskNodes);
+			NewTaskNodes.Empty();
+		}
+
+		for (auto& Node : ExecutingTaskNodes)
 		{
 			if (Node->AreDependenciesCompleted())
 			{
 				Node->MarkReady();
 			}
 		}
+
+		{
+			FScopeLock Lock(&TaskCriticalSection); // Lock the critical section
+			bIsExecuting = false;
+		}
 	}
 
-	void MarkTaskCompleted(TSharedPtr<FTaskNode> Node)
+	bool HasPendingTasks() const
 	{
-		Node->MarkCompleted();
+		FScopeLock Lock(&TaskCriticalSection); // Lock the critical section
+		return !ExecutingTaskNodes.IsEmpty() || !NewTaskNodes.IsEmpty();
 	}
 
 private:
-	TArray<TSharedPtr<FTaskNode>> TaskNodes;
+	TArray<TSharedPtr<FTaskNode>> ExecutingTaskNodes;
+	TArray<TSharedPtr<FTaskNode>> NewTaskNodes;
 	ThreadPoolManager* PoolManager;
+	mutable FCriticalSection TaskCriticalSection; // Critical section for thread safety
+	bool bIsExecuting; // Flag to indicate if tasks are being executed
+
+	void EnqueueTask(TSharedPtr<FTaskNode> Node)
+	{
+		PoolManager->AddTask(Node->GetTask());
+	}
 };

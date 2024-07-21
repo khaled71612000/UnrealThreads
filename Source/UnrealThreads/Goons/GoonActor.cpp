@@ -18,7 +18,7 @@ AGoonActor::AGoonActor()
 void AGoonActor::BeginPlay()
 {
 	Super::BeginPlay();
-	PoolManager = new ThreadPoolManager(15);
+	PoolManager = new ThreadPoolManager(3);
 	TaskGraph = new TaskGraphManager(PoolManager);
 
 	InitializeParticles();
@@ -28,62 +28,58 @@ void AGoonActor::BeginPlay()
 
 void AGoonActor::InitializeParticles()
 {
+	TArray<TSharedPtr<FParticle>> LocalParticles;
+	LocalParticles.Reserve(ParticleCount);
+
 	for (int32 i = 0; i < ParticleCount; ++i)
 	{
-		// Increase the spawn radius
-		FVector InitialPosition = FVector(FMath::FRandRange(-5000.0f, 5000.0f), FMath::FRandRange(-5000.0f, 5000.0f), FMath::FRandRange(0, 5000.0f));
-		AParticleActor* ParticleActor = GetWorld()->SpawnActor<AParticleActor>(AParticleActor::StaticClass(), InitialPosition, FRotator::ZeroRotator);
+		FVector InitialPosition = FVector(FMath::FRandRange(-6500.0f, 6500.0f), FMath::FRandRange(-6500.0f, 6500.0f), FMath::FRandRange(100, 3000.0f));
+		AParticleActor* ParticleActor = GetWorld()->SpawnActor<AParticleActor>(ParticleBP, InitialPosition, FRotator::ZeroRotator);
 		TSharedPtr<FParticle> Particle = MakeShareable(new FParticle(InitialPosition, ParticleActor, PositionUpdateQueue));
-		Particles.Add(Particle);
+		LocalParticles.Add(Particle);
 
 		TSharedPtr<ITask> ShakeTask = MakeShareable(new ParticleShakeTask(Particle));
 		TSharedPtr<FTaskNode> TaskNode = MakeShareable(new FTaskNode(ShakeTask));
 		TaskGraph->AddTask(TaskNode);
+	}
+
+	{
+		FScopeLock Lock(&ParticlesCriticalSection);
+		Particles.Append(LocalParticles);
 	}
 }
 
 void AGoonActor::Tick(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+    Super::Tick(DeltaTime);
 
-	// Update elapsed time
-	ElapsedTime += DeltaTime;
+    ElapsedTime += DeltaTime;
 
-	// Check if it's time to add new tasks
-	if (ElapsedTime >= TaskInterval)
-	{
-		AddShakeTasks();
-		ElapsedTime = 0.0f; // Reset the timer
+    if (ElapsedTime >= TaskInterval)
+    {
+        if (!TaskGraph->HasPendingTasks())
+        {
+            ScheduleShakeTasks();
+        }
+        ElapsedTime = 0.0f;
+    }
 
-		TaskGraph->Execute();
-	}
-
-	// Process position updates on the game thread
-	UpdateParticlePositions();
-
-	// Additional behavior for each tick if needed
+    ScheduleUpdatePositions();
+    TaskGraph->Execute();
 }
 
-void AGoonActor::AddShakeTasks()
+void AGoonActor::ScheduleShakeTasks()
 {
-	for (TSharedPtr<FParticle> Particle : Particles)
-	{
-		TSharedPtr<ITask> ShakeTask = MakeShareable(new ParticleShakeTask(Particle));
-		TSharedPtr<FTaskNode> TaskNode = MakeShareable(new FTaskNode(ShakeTask));
-		TaskGraph->AddTask(TaskNode);
-	}
+	TSharedPtr<ITask> AddTasksTask = MakeShareable(new AddShakeTasksTask(this));
+	TSharedPtr<FTaskNode> TaskNode = MakeShareable(new FTaskNode(AddTasksTask));
+	TaskGraph->AddTask(TaskNode);
 }
 
-void AGoonActor::UpdateParticlePositions()
+void AGoonActor::ScheduleUpdatePositions()
 {
-	FParticleUpdate Update;
-	while (PositionUpdateQueue.Dequeue(Update))
-	{
-		if (Update.Actor)
-		{
-			Update.Actor->SetActorLocation(Update.NewPosition);
-		}
-	}
+	TSharedPtr<ITask> UpdateTask = MakeShareable(new UpdatePositionsTask(this));
+	TSharedPtr<FTaskNode> TaskNode = MakeShareable(new FTaskNode(UpdateTask));
+	TaskGraph->AddTask(TaskNode);
 }
 
 void AGoonActor::EndPlay(const EEndPlayReason::Type EndPlayReason)

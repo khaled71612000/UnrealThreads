@@ -17,9 +17,6 @@ public:
 
 	void AddTask(TSharedPtr<ITask> Task)
 	{
-		//get one of the runnable goons from o to X
-		//ThreadPoolManager maintains a list of RunnableGoon instances, each running in its own thread.
-		//The AddTask method adds the task to a random RunnableGoon's queue.
 		int32 Index = FMath::RandHelper(RunnableGoons.Num());
 		RunnableGoons[Index]->AddTask(Task);
 	}
