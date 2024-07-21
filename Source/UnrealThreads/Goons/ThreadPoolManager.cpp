@@ -27,31 +27,6 @@ void ThreadPoolManager::CreateThreads(int32 NumThreads)
 	}
 }
 
-void ThreadPoolManager::SubmitTask(TSharedPtr<ITask> Task)
-{
-	//Even though TQueue is thread-safe in Unreal Engine, using additional locking mechanisms like FScopeLock ensures enhanced safety and consistency, especially when dealing with complex multithreading scenarios
-	
-	// Distribute tasks evenly using round-robin
-	int32 ThreadIndex = LastThreadIndex % PoolSize;
-	LastThreadIndex++;
-	RunnableGoons[ThreadIndex]->AddTask(Task);
-
-	UE_LOG(LogTemp, Warning, TEXT("[%s] Task submitted to queue"), *FDateTime::Now().ToString());
-}
-
-void ThreadPoolManager::SubmitTasks(const TArray<TSharedPtr<ITask>>& Tasks)
-{
-	FScopeLock Lock(&TaskQueueCriticalSection); // Lock once for the entire batch
-	for (const TSharedPtr<ITask>& Task : Tasks)
-	{
-		// Distribute tasks evenly using round-robin
-		int32 ThreadIndex = LastThreadIndex % PoolSize;
-		LastThreadIndex++;
-		RunnableGoons[ThreadIndex]->AddTask(Task);
-		UE_LOG(LogTemp, Warning, TEXT("[%s] Task submitted to queue"), *FDateTime::Now().ToString());
-	}
-	UE_LOG(LogTemp, Warning, TEXT("[%s] Batch of %d tasks submitted to queue"), *FDateTime::Now().ToString(), Tasks.Num());
-}
 void ThreadPoolManager::StopAll()
 {
 	// Signal all runnables to stop

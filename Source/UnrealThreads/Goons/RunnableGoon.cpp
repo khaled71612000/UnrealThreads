@@ -56,14 +56,14 @@ void RunnableGoon::AddTask(TSharedPtr<ITask> Task)
 
 void RunnableGoon::ExecuteTasks()
 {
+
 	TSharedPtr<ITask> Task;
 	while (TaskQueue.Dequeue(Task))
 	{
 		if (Task.IsValid())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[%s] Task dequeued by thread: ThreadPoolThread%d"), *FDateTime::Now().ToString(), CoreAffinity);
+			FScopeLock Lock(&TaskQueueCriticalSection);
 			Task->Execute();
-			UE_LOG(LogTemp, Warning, TEXT("[%s] Task executed by thread: ThreadPoolThread%d"), *FDateTime::Now().ToString(), CoreAffinity);
 		}
 	}
 }

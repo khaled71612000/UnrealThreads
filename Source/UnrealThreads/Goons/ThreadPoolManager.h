@@ -12,10 +12,17 @@ public:
 	ThreadPoolManager(int32 PoolSize);
 	~ThreadPoolManager();
 
-	void SubmitTask(TSharedPtr<ITask> Task);
-	void SubmitTasks(const TArray<TSharedPtr<ITask>>& Tasks);
 	void StopAll();
 	void AddThreads(int32 AdditionalThreads);
+
+	void AddTask(TSharedPtr<ITask> Task)
+	{
+		//get one of the runnable goons from o to X
+		//ThreadPoolManager maintains a list of RunnableGoon instances, each running in its own thread.
+		//The AddTask method adds the task to a random RunnableGoon's queue.
+		int32 Index = FMath::RandHelper(RunnableGoons.Num());
+		RunnableGoons[Index]->AddTask(Task);
+	}
 
 private:
 	TArray<FRunnableThread*> Threads;
