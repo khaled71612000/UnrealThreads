@@ -15,6 +15,7 @@ public:
 	// Sets default values for this actor's properties
 	AMyPhysicsActor();
 
+	FVector ClampPosition(const FVector& Position, float MaxValue);
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;

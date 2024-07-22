@@ -24,13 +24,56 @@ AnotherBackgroundTaskCompletedEvent(FPlatformProcess::GetSynchEventFromPool(true
 
 	CompletedTasks = 0;
 }
+
+FVector AMyPhysicsActor::ClampPosition(const FVector& Position, float MaxValue)
+{
+	return FVector(
+		FMath::Clamp(Position.X, -MaxValue, MaxValue),
+		FMath::Clamp(Position.Y, -MaxValue, MaxValue),
+		FMath::Clamp(Position.Z, -MaxValue, MaxValue)
+	);
+}
+
 // Called when the game starts or when spawned
 void AMyPhysicsActor::BeginPlay()
 {
 	Super::BeginPlay();
 	CompletedTasks = 0;
+
+	// Create graph events for the tasks
+	FGraphEventRef PositionTask = FFunctionGraphTask::CreateAndDispatchWhenReady([this]()
+		{
+			TArray<FVector> Positions;
+			Positions.SetNum(NumCubes);
+
+			ParallelFor(NumCubes, [this, &Positions](int32 Index)
+				{
+					FVector Position = FVector(Index * CubeSpacing, 0.0f, 300.0f);
+					Position = ClampPosition(Position, 10000.0f); // Adjust the max value as needed
+					Positions[Index] = Position;
+				});
+
+			// Broadcasting the completion of position calculation
+			//OnPositionCalculationCompleted.Broadcast();
+		}, TStatId(), nullptr, ENamedThreads::AnyThread);
+	//create task with no prequtists on any thread and no id
+	FGraphEventRef AnotherTask = FFunctionGraphTask::CreateAndDispatchWhenReady([this]()
+		{
+			//FPlatformProcess::Sleep(1.0f);
+			//OnAnotherBackgroundTaskCompleted.Broadcast();
+		}, TStatId(), nullptr, ENamedThreads::AnyThread);
+
+	// Combine both tasks and wait for their completion
+	TArray<FGraphEventRef> Tasks = { PositionTask, AnotherTask };
+	FGraphEventArray TaskArray(Tasks);
+	//If you use WaitUntilTasksComplete, the code will indeed wait at that point until all specified tasks are completed, effectively pausing sequential execution. Once all tasks are complete, it will proceed to the next line of code.
+	FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskArray, ENamedThreads::GameThread);
+
+	// Once all tasks are completed, call the completion handler
+	OnBackgroundTasksCompleted();
+
 	// Spawn the physics cubes
-	SpawnPhysicsCubes();
+	//SpawnPhysicsCubes();
 }
 
 // Called every frame
@@ -42,41 +85,48 @@ void AMyPhysicsActor::Tick(float DeltaTime)
 // Function to spawn physics cubes
 void AMyPhysicsActor::SpawnPhysicsCubes()
 {
-	// Number of tasks to wait for
-	const int32 NumTasks = 2;
+	//// Number of tasks to wait for
+	//const int32 NumTasks = 2;
 
-	Async(EAsyncExecution::Thread, [this]()
-		{
-			TArray<FVector> Positions;
-			//Setting the size of the array (Positions.SetNum(NumCubes);) is crucial because it pre-allocates the required memory for the array before it is accessed in parallel. This ensures that each index in the array is valid and prevents out-of-bounds access.
-			//ParallelFor divides the loop iterations across multiple threads, and each thread operates on different indices of the array.
-			//Pre-allocating the array ensures that all threads have valid indices to work with, preventing any concurrent modification issues or invalid memory accesses.
-			Positions.SetNum(NumCubes);  // Ensure Positions array is correctly sized
+	//Async(EAsyncExecution::Thread, [this]()
+	//	{
+	//		TArray<FVector> Positions;
+	//		//Setting the size of the array (Positions.SetNum(NumCubes);) is crucial because it pre-allocates the required memory for the array before it is accessed in parallel. This ensures that each index in the array is valid and prevents out-of-bounds access.
+	//		//ParallelFor divides the loop iterations across multiple threads, and each thread operates on different indices of the array.
+	//		//Pre-allocating the array ensures that all threads have valid indices to work with, preventing any concurrent modification issues or invalid memory accesses.
+	//		Positions.SetNum(NumCubes);  // Ensure Positions array is correctly sized
 
-			// Calculate positions for the cubes in a sequencal matter then move into async task which will take the rest of the code to the game therad
-			/*for (int32 i = 0; i < NumCubes; ++i)
-			{
-				Positions.Add(FVector(i * CubeSpacing, 0.0f, 300.0f));
-			}*/
-			ParallelFor(NumCubes, [this, &Positions](int32 Index)
-				{
-					Positions[Index] = FVector(Index * CubeSpacing, 0.0f, 300.0f);
-				});
+	//		// Calculate positions for the cubes in a sequencal matter then move into async task which will take the rest of the code to the game therad
+	//		/*for (int32 i = 0; i < NumCubes; ++i)
+	//		{
+	//			Positions.Add(FVector(i * CubeSpacing, 0.0f, 300.0f));
+	//		}*/
+	//		ParallelFor(NumCubes, [this, &Positions](int32 Index)
+	//			{
+	//				Positions[Index] = FVector(Index * CubeSpacing, 0.0f, 300.0f);
+	//			});
 
-			// Schedule the cube spawning on the game thread
-			OnPositionCalculationCompleted.Broadcast();
+	//		// Schedule the cube spawning on the game thread
+	//		OnPositionCalculationCompleted.Broadcast();
 
-		});
+	//	});
 
-	// Task 2: Another background operation (e.g., loading data)
-	Async(EAsyncExecution::Thread, [this, NumTasks]()
-		{
-			// Simulate another background task
-			FPlatformProcess::Sleep(1.0f); // Simulate work
+	//// Task 2: Another background operation (e.g., loading data)
+	//Async(EAsyncExecution::Thread, [this, NumTasks]()
+	//	{
+	//		// Simulate another background task
+	//		FPlatformProcess::Sleep(1.0f); // Simulate work
 
-			// Signal task completion
-			OnAnotherBackgroundTaskCompleted.Broadcast();
-		});
+	//		// Signal task completion
+	//		OnAnotherBackgroundTaskCompleted.Broadcast();
+	//	});
+
+
+
+
+
+
+
 
 	//// Wait for all background tasks to complete
 	//Async(EAsyncExecution::Thread, [this, NumTasks]()
@@ -120,7 +170,7 @@ void AMyPhysicsActor::ApplyRandomForces()
 	}
 
 	// Schedule the next application of random forces
-	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &AMyPhysicsActor::ApplyRandomForces);
+	//GetWorld()->GetTimerManager().SetTimerForNextTick(this, &AMyPhysicsActor::ApplyRandomForces);
 }
 
 void AMyPhysicsActor::OnBackgroundTasksCompleted()
