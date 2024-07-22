@@ -40,40 +40,23 @@ void AMyPhysicsActor::BeginPlay()
 	Super::BeginPlay();
 	CompletedTasks = 0;
 
-	// Create graph events for the tasks
-	FGraphEventRef PositionTask = FFunctionGraphTask::CreateAndDispatchWhenReady([this]()
-		{
-			TArray<FVector> Positions;
-			Positions.SetNum(NumCubes);
+	// Create and start the position calculation task
+	(new FAutoDeleteAsyncTask<FMyPhysicsTask>(NumCubes, CubeSpacing))->StartBackgroundTask();
 
-			ParallelFor(NumCubes, [this, &Positions](int32 Index)
-				{
-					FVector Position = FVector(Index * CubeSpacing, 0.0f, 300.0f);
-					Position = ClampPosition(Position, 10000.0f); // Adjust the max value as needed
-					Positions[Index] = Position;
-				});
-
-			// Broadcasting the completion of position calculation
-			//OnPositionCalculationCompleted.Broadcast();
-		}, TStatId(), nullptr, ENamedThreads::AnyThread);
-	//create task with no prequtists on any thread and no id
+	// Simulate another background task
 	FGraphEventRef AnotherTask = FFunctionGraphTask::CreateAndDispatchWhenReady([this]()
 		{
-			//FPlatformProcess::Sleep(1.0f);
-			//OnAnotherBackgroundTaskCompleted.Broadcast();
+			FPlatformProcess::Sleep(1.0f);
+			OnAnotherBackgroundTaskCompleted.Broadcast();
 		}, TStatId(), nullptr, ENamedThreads::AnyThread);
 
 	// Combine both tasks and wait for their completion
-	TArray<FGraphEventRef> Tasks = { PositionTask, AnotherTask };
+	TArray<FGraphEventRef> Tasks = { AnotherTask };
 	FGraphEventArray TaskArray(Tasks);
-	//If you use WaitUntilTasksComplete, the code will indeed wait at that point until all specified tasks are completed, effectively pausing sequential execution. Once all tasks are complete, it will proceed to the next line of code.
 	FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskArray, ENamedThreads::GameThread);
 
 	// Once all tasks are completed, call the completion handler
 	OnBackgroundTasksCompleted();
-
-	// Spawn the physics cubes
-	//SpawnPhysicsCubes();
 }
 
 // Called every frame

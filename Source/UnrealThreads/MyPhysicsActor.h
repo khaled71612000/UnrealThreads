@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Components/StaticMeshComponent.h"
 #include "../../../../../../../Source/Runtime/PhysicsCore/Public/PhysicalMaterials/PhysicalMaterial.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "MyPhysicsActor.generated.h"
 
 UCLASS()
@@ -68,4 +69,45 @@ private:
 	// Internal helper to check if all tasks are completed
 	void CheckAllTasksCompleted();
 
+};
+
+class FMyPhysicsTask : public FNonAbandonableTask
+{
+	friend class FAutoDeleteAsyncTask<FMyPhysicsTask>;
+
+public:
+	FMyPhysicsTask(int32 InNumCubes, float InCubeSpacing)
+		: NumCubes(InNumCubes), CubeSpacing(InCubeSpacing) {}
+
+protected:
+	int32 NumCubes;
+	float CubeSpacing;
+
+	void DoWork()
+	{
+		// Perform your background task here
+		TArray<FVector> Positions;
+		Positions.SetNum(NumCubes);
+
+		ParallelFor(NumCubes, [this, &Positions](int32 Index)
+			{
+				FVector Position = FVector(Index * CubeSpacing, 0.0f, 300.0f);
+				Position = ClampPosition(Position, 1000.0f); // Adjust the max value as needed
+				Positions[Index] = Position;
+			});
+	}
+
+	FVector ClampPosition(const FVector& Position, float MaxValue)
+	{
+		return FVector(
+			FMath::Clamp(Position.X, -MaxValue, MaxValue),
+			FMath::Clamp(Position.Y, -MaxValue, MaxValue),
+			FMath::Clamp(Position.Z, -MaxValue, MaxValue)
+		);
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FMyPhysicsTask, STATGROUP_ThreadPoolAsyncTasks);
+	}
 };
