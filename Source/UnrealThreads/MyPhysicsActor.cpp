@@ -46,7 +46,7 @@ void AMyPhysicsActor::BeginPlay()
 	// Simulate another background task
 	FGraphEventRef AnotherTask = FFunctionGraphTask::CreateAndDispatchWhenReady([this]()
 		{
-			FPlatformProcess::Sleep(1.0f);
+			//FPlatformProcess::Sleep(1.0f);
 			OnAnotherBackgroundTaskCompleted.Broadcast();
 		}, TStatId(), nullptr, ENamedThreads::AnyThread);
 
