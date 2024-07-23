@@ -88,6 +88,9 @@ The `GoonActor` class integrates all components, demonstrating how tasks are sch
 ## Credits
 
 This project is inspired by and based on various multithreading techniques and examples from the Unreal Engine community.
+[YouTube Video](https://youtu.be/jwQ1YO96gDY?si=mhs33Th0O8GrUVwK)
+
+![GIF 1](https://media.giphy.com/media/frTLRXHIU6AEzBG2Mp/giphy.gif)
 
 ![image](https://github.com/user-attachments/assets/498dcfc9-04ee-44e5-bf65-1852d5e084d7)
 ![image](https://github.com/user-attachments/assets/eebfc610-aca4-4b31-88c8-e895b2b27270)
